@@ -4,12 +4,48 @@ import { supabase } from '@/lib/supabaseClient';
 import Sidebar from '@/components/Sidebar';
 import ChatArea from '@/components/ChatArea';
 
+// Hook sederhana untuk mendeteksi ukuran layar
+const useMediaQuery = (width) => {
+    const [targetReached, setTargetReached] = useState(false);
+
+    useEffect(() => {
+        const updateTarget = (e) => {
+            if (e.matches) {
+                setTargetReached(true);
+            } else {
+                setTargetReached(false);
+            }
+        };
+
+        const media = window.matchMedia(`(max-width: ${width}px)`);
+        media.addEventListener('change', updateTarget);
+
+        // Cek saat pertama kali load
+        if (media.matches) {
+            setTargetReached(true);
+        }
+
+        return () => media.removeEventListener('change', updateTarget);
+    }, [width]);
+
+    return targetReached;
+};
+
+
 export default function Home() {
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const isMobile = useMediaQuery(768); // 768px adalah breakpoint 'md' di Tailwind
+    const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile);
     const [sessions, setSessions] = useState([]);
     const [activeSessionId, setActiveSessionId] = useState(null);
     const [messages, setMessages] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
+
+    // Otomatis tutup sidebar jika layar berubah menjadi mobile
+    useEffect(() => {
+        if (isMobile) {
+            setIsSidebarOpen(false);
+        }
+    }, [isMobile]);
 
     // Fetch all chat sessions on initial load
     useEffect(() => {
@@ -107,15 +143,13 @@ export default function Home() {
             session_id: activeSessionId,
             role: 'user',
             content: userInput,
-            image_url: imageUrl, // Note: Storing blob URL, for persistent storage upload to Supabase Storage
+            image_url: imageUrl,
         });
 
         try {
             const response = await fetch('/api/chat', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     prompt: userInput,
                     history: messages,
